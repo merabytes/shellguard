@@ -1,0 +1,31 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+  configure)
+    # Default config
+    if [ ! -f /etc/shellguard/shellguard.conf ]; then
+        cp /etc/shellguard/shellguard.conf.example /etc/shellguard/shellguard.conf
+        echo "ShellGuard: config installed at /etc/shellguard/shellguard.conf"
+        echo "Edit TELEGRAM_ENABLED=1 and set tokens before starting."
+    fi
+
+    # PAM hook
+    PAM_COMMON=/etc/pam.d/common-session
+    PAM_LINE="session optional pam_exec.so /usr/lib/shellguard/pam_hook.sh"
+    if [ -f "$PAM_COMMON" ] && ! grep -qF "shellguard" "$PAM_COMMON"; then
+        echo "$PAM_LINE" >> "$PAM_COMMON"
+        echo "ShellGuard: PAM hook installed in $PAM_COMMON"
+    fi
+
+    # systemd
+    if command -v systemctl >/dev/null 2>&1 && systemctl is-system-running --quiet 2>/dev/null; then
+        systemctl daemon-reload
+        systemctl enable shellguard.service
+        systemctl start shellguard.service || true
+        echo "ShellGuard: service started"
+    fi
+    ;;
+esac
+
+exit 0

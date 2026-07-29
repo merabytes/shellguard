@@ -1,0 +1,18 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+  remove|purge)
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl stop shellguard.service 2>/dev/null || true
+        systemctl disable shellguard.service 2>/dev/null || true
+    fi
+
+    PAM_COMMON=/etc/pam.d/common-session
+    if [ -f "$PAM_COMMON" ]; then
+        sed -i '/shellguard/d' "$PAM_COMMON"
+    fi
+    ;;
+esac
+
+exit 0

@@ -1,0 +1,5 @@
+secrets.yml
+dist/
+*.deb
+tests/e2e/__pycache__/
+*.pyc

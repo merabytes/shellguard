@@ -1,0 +1,15 @@
+[Unit]
+Description=ShellGuard — shell and SSH session alerting daemon
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/shellguard -c /etc/shellguard/shellguard.conf
+Restart=on-failure
+RestartSec=5
+User=root
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

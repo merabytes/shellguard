@@ -1,0 +1,36 @@
+[general]
+hostname = my-server
+poll_interval = 2
+use_pam = auto
+use_inotify = auto
+socket_path = /run/shellguard.sock
+log_file = /var/log/shellguard.log
+dedup_window = 60
+
+[email]
+enabled = false
+smtp_host = smtp.gmail.com
+smtp_port = 587
+username = alerts@example.com
+password = secret
+from = alerts@example.com
+to = admin@example.com
+use_tls = true
+
+[slack]
+enabled = false
+webhook_url = https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+
+[teams]
+enabled = false
+webhook_url = https://outlook.office.com/webhook/YOUR/WEBHOOK/URL
+
+[telegram]
+enabled = false
+bot_token = 123456:ABCDEFyour_bot_token
+chat_id = -100123456
+
+[webhook]
+enabled = false
+url = https://my-app.com/hooks/shell-event
+secret = optional-hmac-secret

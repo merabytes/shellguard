@@ -1,0 +1,12 @@
+Package: shellguard
+Version: 0.2.0
+Section: admin
+Priority: optional
+Architecture: all
+Depends: curl
+Maintainer: ShellGuard <shellguard@merabytes.com>
+Description: Shell and SSH session alerting daemon (pure sh)
+ ShellGuard monitors for new interactive shells and SSH logins
+ and sends real-time notifications via Telegram, Slack, or webhook.
+ Zero Python dependency — runs on BusyBox, Synology NAS, Alpine,
+ Debian and any POSIX system with sh and curl.

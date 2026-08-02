@@ -1,0 +1,22 @@
+# Maintainer: ShellGuard <shellguard@merabytes.com>
+pkgname=shellguard
+pkgver=0.2.0
+pkgrel=0
+pkgdesc="Shell and SSH session alerting daemon (pure sh)"
+url="https://github.com/merabytes/shellguard"
+arch="noarch"
+license="MIT"
+depends="curl"
+source="shellguard-${pkgver}.tar.gz"
+builddir="$srcdir/shellguard-${pkgver}"
+
+package() {
+    install -Dm755 "$builddir/usr/bin/shellguard"                 "$pkgdir/usr/bin/shellguard"
+    install -Dm755 "$builddir/usr/lib/shellguard/pam_hook.sh"     "$pkgdir/usr/lib/shellguard/pam_hook.sh"
+    install -Dm644 "$builddir/etc/shellguard/shellguard.conf.example" "$pkgdir/etc/shellguard/shellguard.conf.example"
+    install -Dm644 "$builddir/lib/systemd/system/shellguard.service"  "$pkgdir/lib/systemd/system/shellguard.service"
+}
+
+post_install() {
+    [ ! -f /etc/shellguard/shellguard.conf ] && cp /etc/shellguard/shellguard.conf.example /etc/shellguard/shellguard.conf || true
+}

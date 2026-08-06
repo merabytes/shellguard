@@ -70,20 +70,49 @@ Active shells are tracked in a **pure in-memory variable** (`ACTIVE_SHELLS`) —
 
 ## Installation
 
-### From .deb (Debian/Ubuntu)
+### From .deb (Debian 12 Bookworm / Ubuntu)
+
+Download the pre-built package from [Releases](https://github.com/merabytes/shellguard/releases) or use the one in `dist/`:
 
 ```bash
-# Build the package
-bash build_deb.sh
+# Install (--force-overwrite handles upgrades gracefully)
+dpkg -i --force-overwrite shellguard_0.2.0_debian12-bookworm_all.deb
+```
 
-# Install
-dpkg -i dist/shellguard_*.deb
+If there are unmet dependencies (only `curl` and `awk` are needed):
 
-# Configure
+```bash
+apt-get install -f -y
+```
+
+**Configure Telegram:**
+
+```bash
 vi /etc/shellguard/shellguard.conf
+```
 
-# Start
+Set your bot token and chat ID:
+
+```ini
+TELEGRAM_ENABLED=1
+TELEGRAM_BOT_TOKEN=123456789:AAFxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TELEGRAM_CHAT_ID=-1001234567890
+```
+
+- Get a bot token → talk to [@BotFather](https://t.me/BotFather), send `/newbot`
+- Get your chat/channel ID → forward a message to [@userinfobot](https://t.me/userinfobot), or use the Telegram API: `curl "https://api.telegram.org/bot<TOKEN>/getUpdates"` after sending a message to the bot/channel
+
+For a **private channel**, the bot must be added as admin. The chat ID will be negative (e.g. `-1001234567890`).
+
+```bash
+# Enable and start
 systemctl enable --now shellguard
+
+# Verify it's running
+systemctl status shellguard
+
+# Test alert manually
+systemctl kill -s USR1 shellguard   # or just open a new shell — you should get a Telegram message within 1s
 ```
 
 ### Manual

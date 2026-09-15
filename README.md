@@ -93,7 +93,7 @@ dpkg --no-debsig --force-all -i shellguard.deb
 **Pinned version:**
 
 ```bash
-VERSION=0.2.2
+VERSION=2.2.2
 curl -fsSL -O "https://github.com/merabytes/shellguard/releases/download/v${VERSION}/shellguard_${VERSION}_all.deb"
 curl -fsSL -O "https://github.com/merabytes/shellguard/releases/download/v${VERSION}/SHA256SUMS"
 sha256sum -c SHA256SUMS

@@ -1,23 +1,44 @@
 #!/bin/sh
 # shellguard-configure — interactive Telegram setup and service start
-# Usage: shellguard-configure [--start] [--test-only]
+# Usage: shellguard-configure [--start] [--test-only] [--verbose]
+# Env:   SHELLGUARD_VERBOSE=1  SHELLGUARD_TG_TOKEN  SHELLGUARD_TG_CHAT  SHELLGUARD_TG_TOPIC
 set -e
 
+CONFIGURE_VERSION="2"
 CONF="/etc/shellguard/shellguard.conf"
 CONF_EXAMPLE="/etc/shellguard/shellguard.conf.example"
 RC_SRC="/usr/lib/shellguard/synology-rc"
 RC_DST="/usr/local/etc/rc.d/S99shellguard"
-GITHUB_REPO="merabytes/shellguard"
 
 DO_START=0
 TEST_ONLY=0
+VERBOSE=0
 
 for arg in "$@"; do
     case "$arg" in
         --start)     DO_START=1 ;;
         --test-only) TEST_ONLY=1 ;;
+        --verbose|-v) VERBOSE=1 ;;
     esac
 done
+
+[ "${SHELLGUARD_VERBOSE:-0}" = "1" ] && VERBOSE=1
+
+vlog() {
+    [ "$VERBOSE" = "1" ] && printf '[verbose] %s\n' "$*" >&2
+}
+
+mask_secret() {
+    _s=$1
+    _n=$(printf '%s' "$_s" | wc -c | tr -d ' ')
+    if [ "$_n" -le 6 ]; then
+        printf '***'
+        return
+    fi
+    _start=$(printf '%s' "$_s" | cut -c1-4)
+    _end=$(printf '%s' "$_s" | tail -c 4)
+    printf '%s...%s' "$_start" "$_end"
+}
 
 require_root() {
     if [ "$(id -u)" -ne 0 ]; then
@@ -57,9 +78,10 @@ read_line_tty() {
 
 prompt_telegram() {
     echo ""
-    echo "=== ShellGuard — Telegram setup ==="
+    echo "=== ShellGuard — Telegram setup (configure v${CONFIGURE_VERSION}) ==="
     echo "Create a bot with @BotFather (/newbot) and add it to your chat/channel."
     echo "For forum topics: enable Topics in the group, then open the topic and copy its ID."
+    echo "Verbose: shellguard-configure --verbose   or   SHELLGUARD_VERBOSE=1"
     echo ""
 
     if [ -z "${SHELLGUARD_TG_TOKEN:-}" ]; then
@@ -80,6 +102,10 @@ prompt_telegram() {
         echo "Bot token and chat ID are required." >&2
         exit 1
     fi
+
+    vlog "token=$(mask_secret "$SHELLGUARD_TG_TOKEN") len=$(printf '%s' "$SHELLGUARD_TG_TOKEN" | wc -c | tr -d ' ')"
+    vlog "chat_id=${SHELLGUARD_TG_CHAT}"
+    vlog "topic_id=${SHELLGUARD_TG_TOPIC:-<empty>}"
 }
 
 write_config() {
@@ -116,36 +142,99 @@ write_config() {
 
     chmod 600 "$CONF"
     echo "Wrote $CONF (mode 600)"
+    vlog "config written to $CONF"
+}
+
+telegram_api() {
+    _method=$1
+    shift
+    _base="https://api.telegram.org/bot${SHELLGUARD_TG_TOKEN}/${_method}"
+    _out="/tmp/shellguard_tg_resp.$$"
+    _err="/tmp/shellguard_tg_err.$$"
+    _code="/tmp/shellguard_tg_code.$$"
+
+    vlog "API ${_method} -> ${_base}"
+    vlog "curl args: $*"
+
+    _rc=0
+    if [ "$VERBOSE" = "1" ]; then
+        curl -s --max-time 15 -w '%{http_code}' -o "$_out" "$@" "$_base" >"$_code" 2>"$_err" || _rc=$?
+    else
+        curl -s --max-time 15 -w '%{http_code}' -o "$_out" "$@" "$_base" >"$_code" 2>"$_err" || _rc=$?
+    fi
+
+    TG_HTTP_CODE=$(cat "$_code" 2>/dev/null || echo "?")
+    TG_BODY=$(cat "$_out" 2>/dev/null || true)
+    TG_CURL_RC=$_rc
+    TG_CURL_ERR=$(cat "$_err" 2>/dev/null || true)
+
+    rm -f "$_out" "$_err" "$_code"
+
+    vlog "curl exit=${TG_CURL_RC} http=${TG_HTTP_CODE}"
+    [ -n "$TG_CURL_ERR" ] && vlog "curl stderr: ${TG_CURL_ERR}"
+    vlog "response body: ${TG_BODY:-<empty>}"
+}
+
+test_telegram_getme() {
+    echo "Checking bot token (getMe) ..."
+    telegram_api getMe
+    if [ "$TG_CURL_RC" != "0" ]; then
+        echo "getMe failed: curl exit ${TG_CURL_RC}" >&2
+        [ -n "$TG_CURL_ERR" ] && echo "  curl: ${TG_CURL_ERR}" >&2
+        return 1
+    fi
+    if printf '%s' "$TG_BODY" | grep -q '"ok"[[:space:]]*:[[:space:]]*true'; then
+        _user=$(printf '%s' "$TG_BODY" | grep -o '"username":"[^"]*"' | head -1 | sed 's/"username":"//;s/"$//')
+        echo "Bot OK: @${_user:-unknown}"
+        return 0
+    fi
+    _err=$(printf '%s' "$TG_BODY" | grep -o '"description":"[^"]*"' | head -1 | sed 's/"description":"//;s/"$//')
+    echo "getMe failed: ${_err:-unknown error}" >&2
+    echo "  response: ${TG_BODY:-<empty>}" >&2
+    return 1
 }
 
 test_telegram() {
     _host=$(hostname 2>/dev/null || echo "shellguard")
     _msg="[ShellGuard] Test alert from ${_host}
 If you see this, Telegram is configured correctly."
-    _url="https://api.telegram.org/bot${SHELLGUARD_TG_TOKEN}/sendMessage"
 
-    echo "Sending test message to Telegram..."
+    test_telegram_getme || exit 1
+
+    echo "Sending test message to Telegram ..."
     if [ -n "${SHELLGUARD_TG_TOPIC:-}" ]; then
-        _resp=$(curl -s --max-time 15 "$_url" \
+        telegram_api sendMessage \
             --data-urlencode "chat_id=${SHELLGUARD_TG_CHAT}" \
             --data-urlencode "text=${_msg}" \
-            --data-urlencode "message_thread_id=${SHELLGUARD_TG_TOPIC}" \
-            2>/dev/null) || _resp=""
+            --data-urlencode "message_thread_id=${SHELLGUARD_TG_TOPIC}"
     else
-        _resp=$(curl -s --max-time 15 "$_url" \
+        telegram_api sendMessage \
             --data-urlencode "chat_id=${SHELLGUARD_TG_CHAT}" \
-            --data-urlencode "text=${_msg}" \
-            2>/dev/null) || _resp=""
+            --data-urlencode "text=${_msg}"
     fi
 
-    if printf '%s' "$_resp" | grep -q '"ok"[[:space:]]*:[[:space:]]*true'; then
-        echo "Telegram test OK."
+    if [ "$TG_CURL_RC" != "0" ]; then
+        echo "sendMessage failed: curl exit ${TG_CURL_RC}" >&2
+        [ -n "$TG_CURL_ERR" ] && echo "  curl: ${TG_CURL_ERR}" >&2
+        echo "  Check DNS/HTTPS to api.telegram.org from this host." >&2
+        exit 1
+    fi
+
+    if printf '%s' "$TG_BODY" | grep -q '"ok"[[:space:]]*:[[:space:]]*true'; then
+        echo "Telegram test OK (HTTP ${TG_HTTP_CODE})."
         return 0
     fi
 
-    _err=$(printf '%s' "$_resp" | grep -o '"description":"[^"]*"' | head -1 | sed 's/"description":"//;s/"$//')
-    echo "Telegram test failed.${_err:+ $_err}" >&2
-    [ -n "$_resp" ] && echo "API response: $_resp" >&2
+    _err=$(printf '%s' "$TG_BODY" | grep -o '"description":"[^"]*"' | head -1 | sed 's/"description":"//;s/"$//')
+    echo "Telegram sendMessage failed (HTTP ${TG_HTTP_CODE})." >&2
+    [ -n "$_err" ] && echo "  Telegram says: ${_err}" >&2
+    echo "  Full response: ${TG_BODY:-<empty>}" >&2
+    echo "" >&2
+    echo "Common fixes:" >&2
+    echo "  - Bot must be admin in the channel/group" >&2
+    echo "  - chat_id must match the chat (negative for supergroups/channels)" >&2
+    echo "  - topic_id must exist if the group has Topics enabled" >&2
+    echo "  - Re-run with: shellguard-configure --verbose --test-only" >&2
     exit 1
 }
 
@@ -202,5 +291,5 @@ if [ "$DO_START" = "1" ]; then
     echo ""
     echo "ShellGuard is running. Open a new shell to trigger an alert."
     echo "Logs: tail -f /var/log/shellguard.log"
-    echo "Reconfigure anytime: shellguard-configure --start"
+    echo "Reconfigure anytime: shellguard-configure --verbose --start"
 fi

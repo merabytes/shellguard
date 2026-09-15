@@ -12,16 +12,21 @@
 #     "https://api.github.com/repos/merabytes/shellguard/contents/scripts/install-synology.sh?ref=main" \
 #     | sudo GITHUB_TOKEN="${GITHUB_TOKEN}" sh
 #
-# Non-interactive:
-#   ... | sudo SHELLGUARD_TG_TOKEN=xxx SHELLGUARD_TG_CHAT=-100... sh
+# Non-interactive / verbose (env vars AFTER sudo, before sh):
+#   curl -fsSL ... | sudo SHELLGUARD_VERSION=2.2.4 SHELLGUARD_VERBOSE=1 sh
+#   curl -fsSL ... | sudo SHELLGUARD_TG_TOKEN=xxx SHELLGUARD_TG_CHAT=-100... sh
 set -e
 
-INSTALLER_VERSION="5"
+INSTALLER_VERSION="6"
 
 GITHUB_REPO="${SHELLGUARD_REPO:-merabytes/shellguard}"
 VERSION="${SHELLGUARD_VERSION:-latest}"
 CONF="/etc/shellguard/shellguard.conf"
 TMPDIR="${TMPDIR:-/tmp}"
+
+vlog() {
+    [ "${SHELLGUARD_VERBOSE:-0}" = "1" ] && printf '[verbose] %s\n' "$*" >&2
+}
 
 require_root() {
     if [ "$(id -u)" -ne 0 ]; then
@@ -185,26 +190,56 @@ install_deb() {
     exit 1
 }
 
+run_configure() {
+    _cfg="${TMPDIR}/shellguard-configure.$$"
+    _args="--start"
+    [ "${SHELLGUARD_VERBOSE:-0}" = "1" ] && _args="--verbose $_args"
+
+    _cfg_url=$(release_url "configure.sh")
+    echo "Fetching configure.sh from release ..."
+    if curl_auth -L -o "$_cfg" "$_cfg_url" && [ -s "$_cfg" ]; then
+        chmod +x "$_cfg"
+        vlog "configure source: $_cfg_url"
+        sh "$_cfg" $_args
+        return
+    fi
+
+    _raw="https://raw.githubusercontent.com/${GITHUB_REPO}/main/scripts/configure.sh"
+    echo "Release configure.sh unavailable — trying main branch ..."
+    if curl_auth -L -o "$_cfg" "$_raw" && [ -s "$_cfg" ]; then
+        chmod +x "$_cfg"
+        vlog "configure source: $_raw"
+        sh "$_cfg" $_args
+        return
+    fi
+
+    echo "Using installed shellguard-configure ..."
+    if [ -x /usr/bin/shellguard-configure ]; then
+        /usr/bin/shellguard-configure $_args
+    elif [ -x /usr/lib/shellguard/configure.sh ]; then
+        /usr/lib/shellguard/configure.sh $_args
+    else
+        echo "Configure manually: vi $CONF && /usr/local/etc/rc.d/S99shellguard start" >&2
+        exit 1
+    fi
+}
+
 main() {
     require_root
     need_cmd curl
 
     echo "ShellGuard installer v${INSTALLER_VERSION}"
+    vlog "SHELLGUARD_VERSION=${SHELLGUARD_VERSION:-latest}"
+    vlog "SHELLGUARD_VERBOSE=${SHELLGUARD_VERBOSE:-0}"
+    vlog "Tip: curl ... | sudo SHELLGUARD_VERSION=2.2.4 SHELLGUARD_VERBOSE=1 sh"
+
     resolve_version
     download_deb
     install_deb
 
     echo ""
     echo "Package installed. Configuring Telegram ..."
-
-    if [ -x /usr/bin/shellguard-configure ]; then
-        /usr/bin/shellguard-configure --start
-    elif [ -x /usr/lib/shellguard/configure.sh ]; then
-        /usr/lib/shellguard/configure.sh --start
-    else
-        echo "Configure manually: vi $CONF && /usr/local/etc/rc.d/S99shellguard start" >&2
-        exit 1
-    fi
+    run_configure
 
     echo ""
     echo "Done. ShellGuard will start on boot."

@@ -1,0 +1,59 @@
+#!/bin/sh
+# ShellGuard init script for Synology DSM (no systemd)
+CONF=/etc/shellguard/shellguard.conf
+PIDFILE=/var/run/shellguard.pid
+DAEMON=/usr/bin/shellguard
+
+start_daemon() {
+    if [ ! -x "$DAEMON" ]; then
+        echo "shellguard binary not found: $DAEMON" >&2
+        return 1
+    fi
+    if [ ! -f "$CONF" ]; then
+        echo "missing config: $CONF (run shellguard-configure)" >&2
+        return 1
+    fi
+    if [ -f "$PIDFILE" ]; then
+        _old=$(cat "$PIDFILE" 2>/dev/null)
+        if [ -n "$_old" ] && kill -0 "$_old" 2>/dev/null; then
+            echo "shellguard already running (pid $_old)"
+            return 0
+        fi
+        rm -f "$PIDFILE"
+    fi
+    mkdir -p /var/log /var/run 2>/dev/null || true
+    "$DAEMON" -c "$CONF" &
+    echo $! > "$PIDFILE"
+    echo "shellguard started (pid $(cat "$PIDFILE"))"
+}
+
+stop_daemon() {
+    if [ -f "$PIDFILE" ]; then
+        kill "$(cat "$PIDFILE")" 2>/dev/null || true
+        rm -f "$PIDFILE"
+    fi
+    killall shellguard 2>/dev/null || true
+    echo "shellguard stopped"
+}
+
+status_daemon() {
+    if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+        echo "shellguard running (pid $(cat "$PIDFILE"))"
+        return 0
+    fi
+    echo "shellguard stopped"
+    return 1
+}
+
+case "$1" in
+    start)   start_daemon ;;
+    stop)    stop_daemon ;;
+    restart) stop_daemon; sleep 1; start_daemon ;;
+    status)  status_daemon ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|status}"
+        exit 1
+        ;;
+esac
+
+exit 0

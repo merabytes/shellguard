@@ -21,6 +21,7 @@ else
     TELEGRAM_ENABLED=${TELEGRAM_ENABLED:-0}
     TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-""}
     TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-""}
+    TELEGRAM_TOPIC_ID=${TELEGRAM_TOPIC_ID:-""}
 fi
 
 HOST=$(hostname 2>/dev/null || cat /proc/sys/kernel/hostname 2>/dev/null || echo "unknown")
@@ -41,10 +42,12 @@ From: $PAM_RHOST"
 
 # Notify
 if [ "$TELEGRAM_ENABLED" = "1" ] && [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+    _tg_args="--data-urlencode chat_id=${TELEGRAM_CHAT_ID} --data-urlencode text=${MSG}"
+    [ -n "${TELEGRAM_TOPIC_ID:-}" ] && \
+        _tg_args="$_tg_args --data-urlencode message_thread_id=${TELEGRAM_TOPIC_ID}"
     curl -sf --max-time 10 \
         "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-        --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
-        --data-urlencode "text=${MSG}" > /dev/null 2>&1 &
+        $_tg_args > /dev/null 2>&1 &
 fi
 
 if [ "$SLACK_ENABLED" = "1" ] && [ -n "$SLACK_WEBHOOK_URL" ]; then

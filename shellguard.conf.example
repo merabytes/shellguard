@@ -12,6 +12,7 @@ LOG_STDOUT=1                # 1 = also print to stdout
 TELEGRAM_ENABLED=0
 TELEGRAM_BOT_TOKEN=""       # 123456789:AAxxxxxxxxxxxxxxx
 TELEGRAM_CHAT_ID=""         # numeric chat id or @channelusername
+TELEGRAM_TOPIC_ID=""        # optional forum topic id (message_thread_id)
 
 # ── Slack ────────────────────────────────────────────────────────────────────
 SLACK_ENABLED=0

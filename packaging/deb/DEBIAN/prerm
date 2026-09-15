@@ -7,6 +7,9 @@ case "$1" in
         systemctl stop shellguard.service 2>/dev/null || true
         systemctl disable shellguard.service 2>/dev/null || true
     fi
+    if [ -x /usr/local/etc/rc.d/S99shellguard ]; then
+        /usr/local/etc/rc.d/S99shellguard stop 2>/dev/null || true
+    fi
 
     PAM_COMMON=/etc/pam.d/common-session
     if [ -f "$PAM_COMMON" ]; then

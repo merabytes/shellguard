@@ -58,12 +58,14 @@ _tg_count() {
 # 1. Build .deb
 info "[1/7] Building .deb..."
 sh build_deb.sh 2>&1
-[ -f dist/shellguard_0.2.0_all.deb ] && pass ".deb built ($(du -sh dist/shellguard_0.2.0_all.deb | cut -f1))" \
+_VERSION="$(tr -d '[:space:]' < VERSION)"
+_DEB="dist/shellguard_${_VERSION}_all.deb"
+[ -f "$_DEB" ] && pass ".deb built ($(du -sh "$_DEB" | cut -f1))" \
     || { fail ".deb not found"; exit 1; }
 
 # Verify: no Python files inside the .deb
 _py=$(docker run --rm -v "$(pwd)/dist:/dist" debian:12-slim \
-    sh -c 'dpkg-deb -c /dist/shellguard_0.2.0_all.deb | grep "\.py$" || true')
+    sh -c "dpkg-deb -c /dist/shellguard_${_VERSION}_all.deb | grep '\.py$' || true")
 if [ -z "$_py" ]; then
     pass ".deb contains zero .py files"
 else
@@ -72,7 +74,8 @@ fi
 
 # 2. Build Docker image
 info "[2/7] Building E2E Docker image..."
-docker build -t shellguard_e2e -f tests/e2e/Dockerfile . \
+docker build -t shellguard_e2e -f tests/e2e/Dockerfile \
+    --build-arg "SHELLGUARD_VERSION=${_VERSION}" . \
     && pass "Docker image built"
 
 # 3. Start container

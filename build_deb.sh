@@ -57,7 +57,13 @@ chmod 755 \"\$PKGDIR/usr/bin/shellguard\"
 
 mkdir -p \"\$PKGDIR/usr/lib/shellguard\"
 cp /src/shellguard-pam-hook.sh \"\$PKGDIR/usr/lib/shellguard/pam_hook.sh\"
+cp /src/scripts/configure.sh \"\$PKGDIR/usr/lib/shellguard/configure.sh\"
+cp /src/packaging/synology/S99shellguard \"\$PKGDIR/usr/lib/shellguard/synology-rc\"
 chmod 755 \"\$PKGDIR/usr/lib/shellguard/pam_hook.sh\"
+chmod 755 \"\$PKGDIR/usr/lib/shellguard/configure.sh\"
+chmod 755 \"\$PKGDIR/usr/lib/shellguard/synology-rc\"
+cp /src/scripts/configure.sh \"\$PKGDIR/usr/bin/shellguard-configure\"
+chmod 755 \"\$PKGDIR/usr/bin/shellguard-configure\"
 
 mkdir -p \"\$PKGDIR/etc/shellguard\"
 cp /src/config/shellguard.conf \"\$PKGDIR/etc/shellguard/shellguard.conf.example\"

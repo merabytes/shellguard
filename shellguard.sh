@@ -19,6 +19,7 @@ LOG_STDOUT=1
 TELEGRAM_ENABLED=0
 TELEGRAM_BOT_TOKEN=""
 TELEGRAM_CHAT_ID=""
+TELEGRAM_TOPIC_ID=""
 
 SLACK_ENABLED=0
 SLACK_WEBHOOK_URL=""
@@ -239,10 +240,12 @@ _curl_post() {
 notify_telegram() {
     [ "$TELEGRAM_ENABLED" = "1" ] || return 0
     [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ] || return 1
+    _tg_args="--data-urlencode chat_id=${TELEGRAM_CHAT_ID} --data-urlencode text=$1"
+    [ -n "${TELEGRAM_TOPIC_ID:-}" ] && \
+        _tg_args="$_tg_args --data-urlencode message_thread_id=${TELEGRAM_TOPIC_ID}"
     _curl_post \
         "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-        --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
-        --data-urlencode "text=$1"
+        $_tg_args
     _rc=$?
     [ "$_rc" = "0" ] && log_info "[telegram] sent" || log_warn "[telegram] failed (curl rc=$_rc)"
 }

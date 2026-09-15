@@ -91,7 +91,7 @@ dpkg -i --force-overwrite shellguard.deb
 **Pinned version:**
 
 ```bash
-VERSION=0.2.0
+VERSION=0.2.1
 curl -fsSL -O "https://github.com/merabytes/shellguard/releases/download/v${VERSION}/shellguard_${VERSION}_all.deb"
 curl -fsSL -O "https://github.com/merabytes/shellguard/releases/download/v${VERSION}/SHA256SUMS"
 sha256sum -c SHA256SUMS
@@ -109,6 +109,34 @@ git push origin v0.2.0
 ```
 
 GitHub Actions builds all `.deb` artifacts and publishes the release automatically.
+
+### Synology NAS — instalación guiada (recomendado)
+
+Conecta por SSH como `root` y ejecuta un solo comando. Te pedirá el **token del bot** (oculto), el **chat ID** y el **topic ID** (opcional, para foros de Telegram):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/merabytes/shellguard/main/scripts/install-synology.sh | sudo sh
+```
+
+El script descarga el `.deb`, lo instala, escribe `/etc/shellguard/shellguard.conf`, envía un mensaje de prueba a Telegram y deja el servicio arrancando en boot (`/usr/local/etc/rc.d/S99shellguard`).
+
+**Sin prompts** (automatizado):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/merabytes/shellguard/main/scripts/install-synology.sh | \
+  sudo SHELLGUARD_TG_TOKEN='123456:ABC...' \
+       SHELLGUARD_TG_CHAT='-1001234567890' \
+       SHELLGUARD_TG_TOPIC='42' \
+       sh
+```
+
+**Reconfigurar** Telegram o reiniciar el servicio:
+
+```bash
+sudo shellguard-configure --start
+```
+
+**Topic ID:** en un grupo con Topics activados, abre el topic deseado en Telegram Desktop; el número al final de la URL es el `message_thread_id` (ej. `.../123` → topic `123`).
 
 If there are unmet dependencies (only `curl` and `awk` are needed):
 

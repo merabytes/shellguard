@@ -18,12 +18,19 @@ case "$1" in
         echo "ShellGuard: PAM hook installed in $PAM_COMMON"
     fi
 
-    # systemd
-    if command -v systemctl >/dev/null 2>&1 && systemctl is-system-running --quiet 2>/dev/null; then
+    # systemd (Debian/Ubuntu)
+    if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
         systemctl daemon-reload
-        systemctl enable shellguard.service
-        systemctl start shellguard.service || true
-        echo "ShellGuard: service started"
+        systemctl enable shellguard.service 2>/dev/null || true
+        if [ -f /etc/shellguard/shellguard.conf ] && \
+           grep -q '^TELEGRAM_ENABLED=1' /etc/shellguard/shellguard.conf 2>/dev/null; then
+            systemctl restart shellguard.service || true
+            echo "ShellGuard: systemd service started"
+        else
+            echo "ShellGuard: run 'shellguard-configure --start' to set Telegram and start"
+        fi
+    elif [ -f /etc/synoinfo.conf ] || [ -d /usr/syno ]; then
+        echo "ShellGuard: Synology detected — run 'shellguard-configure --start'"
     fi
     ;;
 esac

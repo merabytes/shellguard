@@ -23,7 +23,8 @@ RUN sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/
     echo "UsePAM yes" >> /etc/ssh/sshd_config
 
 # Install shellguard .deb (built before docker build)
-COPY dist/shellguard_0.2.0_all.deb /tmp/shellguard.deb
+ARG SHELLGUARD_VERSION=0.2.1
+COPY dist/shellguard_${SHELLGUARD_VERSION}_all.deb /tmp/shellguard.deb
 RUN dpkg -i /tmp/shellguard.deb && rm /tmp/shellguard.deb
 
 # E2E config (tokens injected via ENV at runtime)

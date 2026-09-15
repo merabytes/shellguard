@@ -132,9 +132,9 @@ dpkg_install() {
     _opts="--force-all --force-overwrite --force-confdef"
 
     if dpkg --help 2>&1 | grep -q '\--no-debsig'; then
-        dpkg --force-all --no-debsig -i $_opts "$_deb"
+        dpkg --no-debsig -i $_opts "$_deb"
     else
-        dpkg --force-all -i $_opts "$_deb"
+        dpkg -i $_opts "$_deb"
     fi
 }
 

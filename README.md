@@ -70,14 +70,45 @@ Active shells are tracked in a **pure in-memory variable** (`ACTIVE_SHELLS`) —
 
 ## Installation
 
-### From .deb (Debian 12 Bookworm / Ubuntu)
+### From .deb (Debian / Ubuntu / Synology NAS)
 
-Download the pre-built package from [Releases](https://github.com/merabytes/shellguard/releases) or use the one in `dist/`:
+Packages are published on every [GitHub Release](https://github.com/merabytes/shellguard/releases). They are **Architecture: all** (pure shell, no binaries) — the same `.deb` works on amd64, arm64, and armhf, including Synology NAS with `dpkg`.
+
+**Latest release (curl):**
 
 ```bash
-# Install (--force-overwrite handles upgrades gracefully)
-dpkg -i --force-overwrite shellguard_0.2.0_debian12-bookworm_all.deb
+curl -fsSL -o shellguard.deb \
+  "$(curl -fsSL https://api.github.com/repos/merabytes/shellguard/releases/latest \
+    | grep browser_download_url \
+    | grep 'shellguard_.*_all\.deb' \
+    | grep -v debian12-bookworm-full \
+    | head -1 \
+    | cut -d'"' -f4)"
+
+dpkg -i --force-overwrite shellguard.deb
 ```
+
+**Pinned version:**
+
+```bash
+VERSION=0.2.0
+curl -fsSL -O "https://github.com/merabytes/shellguard/releases/download/v${VERSION}/shellguard_${VERSION}_all.deb"
+curl -fsSL -O "https://github.com/merabytes/shellguard/releases/download/v${VERSION}/SHA256SUMS"
+sha256sum -c SHA256SUMS
+
+dpkg -i --force-overwrite "shellguard_${VERSION}_all.deb"
+```
+
+Distro-specific builds are also available (e.g. `shellguard_0.2.0_debian12-bookworm_all.deb`, `shellguard_0.2.0_ubuntu-latest_all.deb`).
+
+**Version control:** bump `VERSION` in the repo root, commit, then tag and push:
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+GitHub Actions builds all `.deb` artifacts and publishes the release automatically.
 
 If there are unmet dependencies (only `curl` and `awk` are needed):
 

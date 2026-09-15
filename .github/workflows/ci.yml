@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+    tags-ignore: ['v*.*.*']
+  pull_request:
+
+jobs:
+  build-deb:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build .deb packages
+        run: sh build_deb.sh --deb-only
+
+      - name: Verify canonical package
+        run: |
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          test -f "dist/shellguard_${VERSION}_all.deb"
+          dpkg-deb -I "dist/shellguard_${VERSION}_all.deb" | grep -F "Architecture: all"

@@ -7,7 +7,13 @@
 # Usage: sh build_deb.sh [--deb-only] [--with-rpm]
 set -e
 
-VERSION="0.2.0"
+if [ -n "${VERSION:-}" ]; then
+    :
+elif [ -f "$(dirname "$0")/VERSION" ]; then
+    VERSION="$(tr -d '[:space:]' < "$(dirname "$0")/VERSION")"
+else
+    VERSION="0.2.0"
+fi
 SRCDIR="$(cd "$(dirname "$0")" && pwd)"
 OUTDIR="$SRCDIR/dist"
 mkdir -p "$OUTDIR"
@@ -198,6 +204,9 @@ APKEOF
 
 # ── Run all builds ────────────────────────────────────────────────────────────
 
+CANONICAL_LABEL="debian12-bookworm"
+CANONICAL_DEB="shellguard_${VERSION}_all.deb"
+
 # .deb para cada distro
 printf '%s\n' "$DEB_TARGETS" | while IFS= read -r line; do
     line="$(printf '%s' "$line" | sed 's/^[[:space:]]*//')"
@@ -207,13 +216,26 @@ printf '%s\n' "$DEB_TARGETS" | while IFS= read -r line; do
     build_deb "$IMAGE" "$LABEL"
 done
 
-# Universal tarball (siempre)
+# Canonical noarch package (Synology, curl one-liners, README)
+if [ -f "$OUTDIR/shellguard_${VERSION}_${CANONICAL_LABEL}_all.deb" ]; then
+    cp "$OUTDIR/shellguard_${VERSION}_${CANONICAL_LABEL}_all.deb" "$OUTDIR/$CANONICAL_DEB"
+    echo "Canonical: $CANONICAL_DEB"
+fi
+
+if [ "$DEB_ONLY" = "1" ]; then
+    echo ""
+    echo "── Packages built ──────────────────────────────────────────"
+    ls -lh "$OUTDIR"/*.deb 2>/dev/null | awk '{print $5, $9}'
+    exit 0
+fi
+
+# Universal tarball
 build_tarball
 
 # RPM (si --with-rpm o rpmbuild disponible)
 [ "$WITH_RPM" = "1" ] && build_rpm || build_rpm
 
-# APK APKBUILD (siempre genera el fichero, build manual en Alpine)
+# APK APKBUILD (build manual en Alpine)
 build_apk
 
 echo ""

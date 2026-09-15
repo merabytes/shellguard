@@ -21,6 +21,8 @@
 #   ... | sudo GITHUB_TOKEN=... SHELLGUARD_TG_TOKEN=xxx SHELLGUARD_TG_CHAT=-100... sh
 set -e
 
+INSTALLER_VERSION="3"
+
 GITHUB_REPO="${SHELLGUARD_REPO:-merabytes/shellguard}"
 VERSION="${SHELLGUARD_VERSION:-latest}"
 CONF="/etc/shellguard/shellguard.conf"
@@ -92,11 +94,43 @@ resolve_version() {
     echo "ShellGuard version: $_ver"
 }
 
+is_synology() {
+    [ -f /etc/synoinfo.conf ] || [ -d /usr/syno ]
+}
+
+# Synology DSM ignores --no-debsig; extract files with dpkg-deb instead of dpkg -i
+install_deb_extract() {
+    _deb=$1
+    _root="/tmp/shellguard.deb.$$"
+    rm -rf "$_root"
+    mkdir -p "$_root"
+
+    need_cmd dpkg-deb
+
+    echo "Installing $_deb via dpkg-deb extract (bypasses debsig) ..."
+    dpkg-deb -x "$_deb" "$_root"
+    dpkg-deb -e "$_deb" "$_root/DEBIAN"
+
+    for _dir in usr etc lib; do
+        if [ -d "$_root/$_dir" ]; then
+            mkdir -p "/$_dir"
+            cp -a "$_root/$_dir/." "/$_dir/"
+        fi
+    done
+
+    if [ -f "$_root/DEBIAN/postinst" ]; then
+        chmod 755 "$_root/DEBIAN/postinst"
+        DEBIAN_FRONTEND=noninteractive sh "$_root/DEBIAN/postinst" configure || true
+    fi
+
+    rm -rf "$_root"
+    echo "ShellGuard files installed."
+}
+
 dpkg_install() {
     _deb=$1
     _opts="--force-overwrite --force-confdef"
 
-    # Synology DSM runs debsig on unsigned packages — skip signature check
     if dpkg --help 2>&1 | grep -q '\--no-debsig'; then
         dpkg --no-debsig -i $_opts "$_deb"
     else
@@ -105,21 +139,35 @@ dpkg_install() {
 }
 
 install_deb() {
+    if is_synology; then
+        install_deb_extract "$DEB_FILE"
+        return
+    fi
+
     need_cmd dpkg
-    echo "Installing $DEB_FILE (unsigned package, skipping debsig) ..."
-    dpkg_install "$DEB_FILE" || {
-        echo "Fixing dependencies..."
-        if command -v apt-get >/dev/null 2>&1; then
-            apt-get install -f -y
-        fi
-        dpkg_install "$DEB_FILE"
-    }
+    echo "Installing $DEB_FILE ..."
+    if dpkg_install "$DEB_FILE" 2>/tmp/shellguard_dpkg.err; then
+        return
+    fi
+
+    if grep -qi 'debsig\|signature' /tmp/shellguard_dpkg.err 2>/dev/null; then
+        echo "dpkg signature check failed — falling back to dpkg-deb extract ..."
+        install_deb_extract "$DEB_FILE"
+        return
+    fi
+
+    echo "Fixing dependencies..."
+    if command -v apt-get >/dev/null 2>&1; then
+        apt-get install -f -y
+    fi
+    dpkg_install "$DEB_FILE"
 }
 
 main() {
     require_root
     need_cmd curl
 
+    echo "ShellGuard installer v${INSTALLER_VERSION}"
     resolve_version
     download_deb
     install_deb

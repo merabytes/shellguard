@@ -240,14 +240,25 @@ _curl_post() {
 notify_telegram() {
     [ "$TELEGRAM_ENABLED" = "1" ] || return 0
     [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ] || return 1
-    _tg_args="--data-urlencode chat_id=${TELEGRAM_CHAT_ID} --data-urlencode text=$1"
-    [ -n "${TELEGRAM_TOPIC_ID:-}" ] && \
-        _tg_args="$_tg_args --data-urlencode message_thread_id=${TELEGRAM_TOPIC_ID}"
-    _curl_post \
-        "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-        $_tg_args
-    _rc=$?
-    [ "$_rc" = "0" ] && log_info "[telegram] sent" || log_warn "[telegram] failed (curl rc=$_rc)"
+    _url="https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage"
+    if [ -n "${TELEGRAM_TOPIC_ID:-}" ]; then
+        _resp=$(curl -s --max-time 10 "$_url" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=$1" \
+            --data-urlencode "message_thread_id=${TELEGRAM_TOPIC_ID}" \
+            2>/dev/null) || _resp=""
+    else
+        _resp=$(curl -s --max-time 10 "$_url" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=$1" \
+            2>/dev/null) || _resp=""
+    fi
+    if printf '%s' "$_resp" | grep -q '"ok"[[:space:]]*:[[:space:]]*true'; then
+        log_info "[telegram] sent"
+        return 0
+    fi
+    log_warn "[telegram] failed"
+    return 1
 }
 
 notify_slack() {

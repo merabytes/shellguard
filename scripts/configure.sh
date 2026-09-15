@@ -122,25 +122,31 @@ test_telegram() {
     _host=$(hostname 2>/dev/null || echo "shellguard")
     _msg="[ShellGuard] Test alert from ${_host}
 If you see this, Telegram is configured correctly."
-
-    _args="--data-urlencode chat_id=${SHELLGUARD_TG_CHAT} --data-urlencode text=${_msg}"
-    [ -n "${SHELLGUARD_TG_TOPIC:-}" ] && \
-        _args="$_args --data-urlencode message_thread_id=${SHELLGUARD_TG_TOPIC}"
+    _url="https://api.telegram.org/bot${SHELLGUARD_TG_TOKEN}/sendMessage"
 
     echo "Sending test message to Telegram..."
-    _resp=$(curl -sf --max-time 15 \
-        "https://api.telegram.org/bot${SHELLGUARD_TG_TOKEN}/sendMessage" \
-        $_args) || {
-        echo "Telegram test failed. Check token, chat ID, topic ID, and that the bot can post." >&2
-        exit 1
-    }
-
-    if printf '%s' "$_resp" | grep -q '"ok":true'; then
-        echo "Telegram test OK."
+    if [ -n "${SHELLGUARD_TG_TOPIC:-}" ]; then
+        _resp=$(curl -s --max-time 15 "$_url" \
+            --data-urlencode "chat_id=${SHELLGUARD_TG_CHAT}" \
+            --data-urlencode "text=${_msg}" \
+            --data-urlencode "message_thread_id=${SHELLGUARD_TG_TOPIC}" \
+            2>/dev/null) || _resp=""
     else
-        echo "Telegram API error: $_resp" >&2
-        exit 1
+        _resp=$(curl -s --max-time 15 "$_url" \
+            --data-urlencode "chat_id=${SHELLGUARD_TG_CHAT}" \
+            --data-urlencode "text=${_msg}" \
+            2>/dev/null) || _resp=""
     fi
+
+    if printf '%s' "$_resp" | grep -q '"ok"[[:space:]]*:[[:space:]]*true'; then
+        echo "Telegram test OK."
+        return 0
+    fi
+
+    _err=$(printf '%s' "$_resp" | grep -o '"description":"[^"]*"' | head -1 | sed 's/"description":"//;s/"$//')
+    echo "Telegram test failed.${_err:+ $_err}" >&2
+    [ -n "$_resp" ] && echo "API response: $_resp" >&2
+    exit 1
 }
 
 setup_synology_service() {

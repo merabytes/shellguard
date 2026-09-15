@@ -1,16 +1,7 @@
 #!/bin/sh
 # ShellGuard one-shot installer for Synology NAS (and other Debian/dpkg hosts)
 #
-# Public repo:
 #   curl -fsSL https://raw.githubusercontent.com/merabytes/shellguard/main/scripts/install-synology.sh | sudo sh
-#
-# Private repo:
-#   export GITHUB_TOKEN=ghp_xxxxxxxx
-#   curl -fsSL \
-#     -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-#     -H "Accept: application/vnd.github.raw" \
-#     "https://api.github.com/repos/merabytes/shellguard/contents/scripts/install-synology.sh?ref=main" \
-#     | sudo GITHUB_TOKEN="${GITHUB_TOKEN}" sh
 #
 # Non-interactive / verbose (env vars AFTER sudo, before sh):
 #   curl -fsSL ... | sudo SHELLGUARD_VERSION=2.2.4 SHELLGUARD_VERBOSE=1 sh
@@ -42,20 +33,6 @@ need_cmd() {
     fi
 }
 
-curl_auth() {
-    if [ -n "${GITHUB_TOKEN:-}" ]; then
-        curl -fsSL -H "Authorization: Bearer ${GITHUB_TOKEN}" "$@"
-    else
-        curl -fsSL "$@"
-    fi
-}
-
-private_repo_hint() {
-    echo "" >&2
-    echo "If this repo is private, set GITHUB_TOKEN with read access." >&2
-    echo '  export GITHUB_TOKEN=ghp_xxxxxxxx' >&2
-}
-
 release_url() {
     _file=$1
     printf 'https://github.com/%s/releases/download/v%s/%s' "$GITHUB_REPO" "$_ver" "$_file"
@@ -64,11 +41,10 @@ release_url() {
 resolve_version() {
     if [ "$VERSION" = "latest" ]; then
         _api="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
-        _json=$(curl_auth "$_api" 2>/dev/null) || _json=""
+        _json=$(curl -fsSL "$_api" 2>/dev/null) || _json=""
         _ver=$(printf '%s' "$_json" | grep '"tag_name"' | head -1 | cut -d'"' -f4 | sed 's/^v//')
         if [ -z "$_ver" ]; then
             echo "Could not resolve latest release version." >&2
-            private_repo_hint
             exit 1
         fi
     else
@@ -82,9 +58,8 @@ download_deb() {
     _url=$(release_url "$_deb")
 
     echo "Downloading $_url ..."
-    if ! curl_auth -L -o "${TMPDIR}/${_deb}" "$_url"; then
+    if ! curl -fsSL -L -o "${TMPDIR}/${_deb}" "$_url"; then
         echo "Failed to download ${_deb}" >&2
-        private_repo_hint
         exit 1
     fi
     DEB_FILE="${TMPDIR}/${_deb}"
@@ -114,7 +89,7 @@ verify_checksum() {
     fi
 
     echo "Downloading checksums from $_url ..."
-    if ! curl_auth -L -o "$_sums" "$_url"; then
+    if ! curl -fsSL -L -o "$_sums" "$_url"; then
         echo "Failed to download SHA256SUMS — refusing to install unverified package." >&2
         echo "Set SHELLGUARD_SKIP_CHECKSUM=1 to override (not recommended)." >&2
         exit 1
@@ -197,7 +172,7 @@ run_configure() {
 
     _cfg_url=$(release_url "configure.sh")
     echo "Fetching configure.sh from release ..."
-    if curl_auth -L -o "$_cfg" "$_cfg_url" && [ -s "$_cfg" ]; then
+    if curl -fsSL -L -o "$_cfg" "$_cfg_url" && [ -s "$_cfg" ]; then
         chmod +x "$_cfg"
         vlog "configure source: $_cfg_url"
         sh "$_cfg" $_args
@@ -206,7 +181,7 @@ run_configure() {
 
     _raw="https://raw.githubusercontent.com/${GITHUB_REPO}/main/scripts/configure.sh"
     echo "Release configure.sh unavailable — trying main branch ..."
-    if curl_auth -L -o "$_cfg" "$_raw" && [ -s "$_cfg" ]; then
+    if curl -fsSL -L -o "$_cfg" "$_raw" && [ -s "$_cfg" ]; then
         chmod +x "$_cfg"
         vlog "configure source: $_raw"
         sh "$_cfg" $_args

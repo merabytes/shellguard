@@ -85,7 +85,7 @@ curl -fsSL -o shellguard.deb \
     | head -1 \
     | cut -d'"' -f4)"
 
-dpkg -i --force-overwrite shellguard.deb
+dpkg --no-debsig -i --force-overwrite shellguard.deb
 ```
 
 **Pinned version:**
@@ -96,7 +96,7 @@ curl -fsSL -O "https://github.com/merabytes/shellguard/releases/download/v${VERS
 curl -fsSL -O "https://github.com/merabytes/shellguard/releases/download/v${VERSION}/SHA256SUMS"
 sha256sum -c SHA256SUMS
 
-dpkg -i --force-overwrite "shellguard_${VERSION}_all.deb"
+dpkg --no-debsig -i --force-overwrite "shellguard_${VERSION}_all.deb"
 ```
 
 Distro-specific builds are also available (e.g. `shellguard_0.2.0_debian12-bookworm_all.deb`, `shellguard_0.2.0_ubuntu-latest_all.deb`).

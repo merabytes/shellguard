@@ -92,15 +92,27 @@ resolve_version() {
     echo "ShellGuard version: $_ver"
 }
 
+dpkg_install() {
+    _deb=$1
+    _opts="--force-overwrite --force-confdef"
+
+    # Synology DSM runs debsig on unsigned packages — skip signature check
+    if dpkg --help 2>&1 | grep -q '\--no-debsig'; then
+        dpkg --no-debsig -i $_opts "$_deb"
+    else
+        dpkg -i $_opts "$_deb"
+    fi
+}
+
 install_deb() {
     need_cmd dpkg
-    echo "Installing $DEB_FILE ..."
-    dpkg -i --force-overwrite "$DEB_FILE" || {
+    echo "Installing $DEB_FILE (unsigned package, skipping debsig) ..."
+    dpkg_install "$DEB_FILE" || {
         echo "Fixing dependencies..."
         if command -v apt-get >/dev/null 2>&1; then
             apt-get install -f -y
         fi
-        dpkg -i --force-overwrite "$DEB_FILE"
+        dpkg_install "$DEB_FILE"
     }
 }
 

@@ -58,4 +58,6 @@ jobs:
           files: |
             dist/*.deb
             dist/SHA256SUMS
+            scripts/install-synology.sh
+            scripts/configure.sh
           fail_on_unmatched_files: true

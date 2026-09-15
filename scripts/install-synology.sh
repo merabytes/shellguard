@@ -1,14 +1,24 @@
 #!/bin/sh
 # ShellGuard one-shot installer for Synology NAS (and other Debian/dpkg hosts)
 #
-# Interactive (prompts for Telegram token, chat ID, topic):
+# Public repo:
 #   curl -fsSL https://raw.githubusercontent.com/merabytes/shellguard/main/scripts/install-synology.sh | sudo sh
 #
-# Non-interactive:
-#   curl -fsSL ... | sudo SHELLGUARD_TG_TOKEN=xxx SHELLGUARD_TG_CHAT=-100... SHELLGUARD_TG_TOPIC=42 sh
+# Private repo (repo + releases return 404 without auth):
+#   export GITHUB_TOKEN=ghp_xxxxxxxx
+#   curl -fsSL \
+#     -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+#     -H "Accept: application/vnd.github.raw" \
+#     "https://api.github.com/repos/merabytes/shellguard/contents/scripts/install-synology.sh?ref=main" \
+#     | sudo GITHUB_TOKEN="${GITHUB_TOKEN}" sh
 #
-# Pin version:
-#   SHELLGUARD_VERSION=0.2.0 curl -fsSL ... | sudo sh
+# Or from release assets (after v0.2.2):
+#   curl -fsSL -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+#     -O "https://github.com/merabytes/shellguard/releases/download/v0.2.2/install-synology.sh"
+#   chmod +x install-synology.sh && sudo GITHUB_TOKEN="${GITHUB_TOKEN}" ./install-synology.sh
+#
+# Non-interactive:
+#   ... | sudo GITHUB_TOKEN=... SHELLGUARD_TG_TOKEN=xxx SHELLGUARD_TG_CHAT=-100... sh
 set -e
 
 GITHUB_REPO="${SHELLGUARD_REPO:-merabytes/shellguard}"
@@ -30,14 +40,37 @@ need_cmd() {
     fi
 }
 
+curl_auth() {
+    if [ -n "${GITHUB_TOKEN:-}" ]; then
+        curl -fsSL -H "Authorization: Bearer ${GITHUB_TOKEN}" "$@"
+    else
+        curl -fsSL "$@"
+    fi
+}
+
+private_repo_hint() {
+    echo "" >&2
+    echo "If this repo is private, raw.githubusercontent.com returns 404." >&2
+    echo "Use a GitHub PAT (read access) with GITHUB_TOKEN, for example:" >&2
+    echo "" >&2
+    echo '  export GITHUB_TOKEN=ghp_xxxxxxxx' >&2
+    echo '  curl -fsSL \' >&2
+    echo '    -H "Authorization: Bearer ${GITHUB_TOKEN}" \' >&2
+    echo '    -H "Accept: application/vnd.github.raw" \' >&2
+    echo "    \"https://api.github.com/repos/${GITHUB_REPO}/contents/scripts/install-synology.sh?ref=main\" \\" >&2
+    echo '    | sudo GITHUB_TOKEN="${GITHUB_TOKEN}" sh' >&2
+    echo "" >&2
+    echo "Or make the repository public: Settings → General → Change visibility." >&2
+}
+
 download_deb() {
     _deb="shellguard_${_ver}_all.deb"
     _url="https://github.com/${GITHUB_REPO}/releases/download/v${_ver}/${_deb}"
 
     echo "Downloading ${_url} ..."
-    if ! curl -fsSL -o "${TMPDIR}/${_deb}" "$_url"; then
+    if ! curl_auth -L -o "${TMPDIR}/${_deb}" "$_url"; then
         echo "Failed to download ${_deb}" >&2
-        echo "Check SHELLGUARD_VERSION or https://github.com/${GITHUB_REPO}/releases" >&2
+        private_repo_hint
         exit 1
     fi
     DEB_FILE="${TMPDIR}/${_deb}"
@@ -46,9 +79,11 @@ download_deb() {
 resolve_version() {
     if [ "$VERSION" = "latest" ]; then
         _api="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
-        _ver=$(curl -fsSL "$_api" | grep '"tag_name"' | head -1 | cut -d'"' -f4 | sed 's/^v//')
+        _json=$(curl_auth "$_api" 2>/dev/null) || _json=""
+        _ver=$(printf '%s' "$_json" | grep '"tag_name"' | head -1 | cut -d'"' -f4 | sed 's/^v//')
         if [ -z "$_ver" ]; then
             echo "Could not resolve latest release version." >&2
+            private_repo_hint
             exit 1
         fi
     else
@@ -90,7 +125,7 @@ main() {
     fi
 
     echo ""
-    echo "Done. ShellGuard will start on boot (Synology: $CONF)."
+    echo "Done. ShellGuard will start on boot."
 }
 
 main "$@"

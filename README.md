@@ -112,11 +112,27 @@ GitHub Actions builds all `.deb` artifacts and publishes the release automatical
 
 ### Synology NAS — instalación guiada (recomendado)
 
-Conecta por SSH como `root` y ejecuta un solo comando. Te pedirá el **token del bot** (oculto), el **chat ID** y el **topic ID** (opcional, para foros de Telegram):
+Conecta por SSH como `root`. Te pedirá el **token del bot** (oculto), el **chat ID** y el **topic ID** (opcional).
+
+**Repositorio público:**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/merabytes/shellguard/main/scripts/install-synology.sh | sudo sh
 ```
+
+**Repositorio privado** (`raw.githubusercontent.com` devuelve 404 — necesitas un PAT de GitHub con lectura):
+
+```bash
+export GITHUB_TOKEN=ghp_xxxxxxxx   # Settings → Developer settings → PAT (repo read)
+
+curl -fsSL \
+  -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+  -H "Accept: application/vnd.github.raw" \
+  "https://api.github.com/repos/merabytes/shellguard/contents/scripts/install-synology.sh?ref=main" \
+  | sudo GITHUB_TOKEN="${GITHUB_TOKEN}" sh
+```
+
+Alternativa: descargar el script desde [Releases](https://github.com/merabytes/shellguard/releases) (`install-synology.sh`) con el mismo `GITHUB_TOKEN`.
 
 El script descarga el `.deb`, lo instala, escribe `/etc/shellguard/shellguard.conf`, envía un mensaje de prueba a Telegram y deja el servicio arrancando en boot (`/usr/local/etc/rc.d/S99shellguard`).
 

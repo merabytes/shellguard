@@ -85,9 +85,9 @@ curl -fsSL -o shellguard.deb \
     | head -1 \
     | cut -d'"' -f4)"
 
-# Synology (unsigned .deb):
-dpkg --force-all --no-debsig -i --force-overwrite shellguard.deb
-# If debsig still fails, use install-synology.sh or dpkg-deb extract
+# Synology (unsigned .deb — verify SHA256SUMS from the release first):
+sha256sum -c SHA256SUMS
+dpkg --no-debsig --force-all -i shellguard.deb
 ```
 
 **Pinned version:**
@@ -98,7 +98,9 @@ curl -fsSL -O "https://github.com/merabytes/shellguard/releases/download/v${VERS
 curl -fsSL -O "https://github.com/merabytes/shellguard/releases/download/v${VERSION}/SHA256SUMS"
 sha256sum -c SHA256SUMS
 
-dpkg --force-all --no-debsig -i --force-overwrite "shellguard_${VERSION}_all.deb"
+curl -fsSL -O "https://github.com/merabytes/shellguard/releases/download/v${VERSION}/SHA256SUMS"
+sha256sum -c SHA256SUMS
+dpkg --no-debsig --force-all -i "shellguard_${VERSION}_all.deb"
 ```
 
 Distro-specific builds are also available (e.g. `shellguard_0.2.0_debian12-bookworm_all.deb`, `shellguard_0.2.0_ubuntu-latest_all.deb`).

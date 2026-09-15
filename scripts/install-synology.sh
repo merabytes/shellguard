@@ -21,7 +21,7 @@
 #   ... | sudo GITHUB_TOKEN=... SHELLGUARD_TG_TOKEN=xxx SHELLGUARD_TG_CHAT=-100... sh
 set -e
 
-INSTALLER_VERSION="3"
+INSTALLER_VERSION="4"
 
 GITHUB_REPO="${SHELLGUARD_REPO:-merabytes/shellguard}"
 VERSION="${SHELLGUARD_VERSION:-latest}"
@@ -129,21 +129,16 @@ install_deb_extract() {
 
 dpkg_install() {
     _deb=$1
-    _opts="--force-overwrite --force-confdef"
+    _opts="--force-all --force-overwrite --force-confdef"
 
     if dpkg --help 2>&1 | grep -q '\--no-debsig'; then
-        dpkg --no-debsig -i $_opts "$_deb"
+        dpkg --force-all --no-debsig -i $_opts "$_deb"
     else
-        dpkg -i $_opts "$_deb"
+        dpkg --force-all -i $_opts "$_deb"
     fi
 }
 
 install_deb() {
-    if is_synology; then
-        install_deb_extract "$DEB_FILE"
-        return
-    fi
-
     need_cmd dpkg
     echo "Installing $DEB_FILE ..."
     if dpkg_install "$DEB_FILE" 2>/tmp/shellguard_dpkg.err; then
@@ -160,7 +155,19 @@ install_deb() {
     if command -v apt-get >/dev/null 2>&1; then
         apt-get install -f -y
     fi
-    dpkg_install "$DEB_FILE"
+
+    if dpkg_install "$DEB_FILE" 2>/tmp/shellguard_dpkg.err; then
+        return
+    fi
+
+    if grep -qi 'debsig\|signature' /tmp/shellguard_dpkg.err 2>/dev/null; then
+        echo "dpkg signature check failed — falling back to dpkg-deb extract ..."
+        install_deb_extract "$DEB_FILE"
+        return
+    fi
+
+    cat /tmp/shellguard_dpkg.err >&2
+    exit 1
 }
 
 main() {
